@@ -2218,3 +2218,576 @@ User input may contain them → causes wrong matches
 Outer % → intentional wildcard
 Inner % → must be treated as normal text 
 ```
+
+```
+16.
+Q. 
+
+Ans>> A botnet is a network of internet-connected devices—computers, smartphones, or IoT hardware—infected with malware and controlled remotely by a single party, known as a "bot-herder". These compromised "zombie" devices work together to perform large-scale attacks, such as DDoS attacks, spam campaigns, or data theft, usually without the owner's knowledge. 
+Palo Alto Networks
+Palo Alto Networks
+
+Key Aspects of a Botnet:
+How They Work: Attackers spread malware (via phishing, malicious links, or vulnerabilities) to infect devices, which then connect back to a central command and control server.
+The "Bot-Herder": The hacker who controls the network, commanding thousands or millions of machines to perform tasks simultaneously.
+Common Uses:
+DDoS Attacks: Overwhelming websites with traffic to take them offline.
+Spam/Phishing: Distributing mass phishing emails or malware.
+Credential Stuffing: Automated login attempts to steal account access.
+Ad Fraud: Generating fake traffic on ads.
+Infected Devices (Bots/Zombies): These can include home PCs, servers, and IoT devices like routers or smart cameras.
+Signs of Infection: While often hidden, signs include slow performance, inexplicable system crashes, and increased network usage. 
+Palo Alto Networks
+Palo Alto Networks
+ 
+How to Protect Against Botnets:
+Keep software and operating systems updated to patch vulnerabilities.
+Use strong, unique passwords and enable multi-factor authentication (MFA) on all devices and accounts.
+Install reputable anti-malware software.
+Secure IoT devices by changing default passwords and disabling unused services. 
+```
+
+```
+17.
+Q. what is the role of express.d.ts and type.d.ts
+
+Ans>> Great — this is a TypeScript architecture concept that many people ignore, but it’s actually very important in real projects.
+
+Let’s break it down clearly and practically.
+
+🧠 1. What are .d.ts files?
+
+👉 .d.ts = Type Declaration Files
+
+They:
+
+"define types without writing actual code"
+
+👉 They don’t run
+👉 They only help TypeScript understand things
+
+🔹 Example
+declare const myVar: string;
+
+👉 This tells TypeScript:
+
+“There is a variable called myVar, trust me”
+
+🔹 2. What is types.d.ts?
+
+👉 This is usually your custom global types file
+
+🧠 Purpose:
+
+👉 Define reusable types across your app
+
+🔍 Example:
+// types.d.ts
+type UploadWidgetValue = {
+  url: string;
+  publicId: string;
+};
+
+👉 Now you can use anywhere:
+
+const file: UploadWidgetValue
+🔥 Why needed?
+Avoid repeating types
+Keep project clean
+Global access
+🧠 In your project:
+
+You used:
+
+import {UploadWidgetValue} from "@/types";
+
+👉 That comes from types.d.ts or similar
+
+🔹 3. What is express.d.ts?
+
+👉 This is type extension for Express
+
+🧠 Problem:
+
+Default Express types don’t know your custom properties
+
+Example problem:
+req.user
+
+❌ TypeScript error:
+
+Property 'user' does not exist
+🔥 Solution: extend Express types
+// express.d.ts
+declare namespace Express {
+  interface Request {
+    user?: {
+      id: string;
+      email: string;
+    };
+  }
+}
+
+👉 Now:
+
+req.user.id ✅ no error
+🔹 4. Why express.d.ts is needed?
+
+👉 When you add things like:
+
+authentication middleware
+JWT user
+custom headers
+Example:
+app.use((req, res, next) => {
+  req.user = decodedToken;
+  next();
+});
+
+👉 TypeScript doesn’t know req.user exists
+
+👉 So you define it in express.d.ts
+
+🔹 5. Key Difference
+File	Purpose
+types.d.ts	general app types
+express.d.ts	extend Express types
+🔹 6. Mental Model
+types.d.ts
+"Define YOUR data structures"
+express.d.ts
+"Modify library types (Express)"
+🔹 7. Where they are used
+types.d.ts
+UploadWidgetValue
+API responses
+DTOs
+express.d.ts
+req.user
+req.role
+req.token
+🔥 8. Important Rule
+
+👉 .d.ts files:
+
+don’t export logic
+only define types
+automatically picked by TypeScript
+🚀 Final Summary (Quick Revision)
+.d.ts → type-only files
+types.d.ts → your custom global types
+express.d.ts → extend Express Request/Response
+Used to avoid TypeScript errors
+Makes large apps scalable
+🔥 Pro Insight (VERY IMPORTANT FOR YOU)
+
+👉 This is what separates:
+
+beginner → writes types locally
+advanced dev → designs type system globally
+```
+
+```
+18.
+Q. 1). Sliding Window (better)
+Smooth counting over time
+More accurate ---> explain this architecture. 2) what do you mean by brute force attacks and what will happen if this happens ---1000 attempts in seconds
+
+Ans>> Great — this is exactly the level of depth you should understand for backend/security 🔥
+I’ll break both parts clearly + practically.
+
+🧠 1) Sliding Window Rate Limiting (Architecture Explained)
+💡 Problem with basic (fixed window)
+
+If limit = 10 requests/minute:
+
+User sends 10 requests at 12:00:59
+Then 10 more at 12:01:01
+
+👉 Total = 20 requests in 2 seconds 😬
+
+So fixed window is not smooth
+
+✅ Sliding Window (Better approach)
+🔁 Idea:
+
+Instead of resetting every minute,
+we continuously track requests in the last X seconds
+
+📊 How it works (step-by-step)
+
+Let’s say:
+
+Limit = 5 requests per 60 seconds
+
+Now timeline:
+
+Time	Requests Count (last 60 sec)
+10:00:00	1
+10:00:10	2
+10:00:20	3
+10:00:30	4
+10:00:40	5
+10:00:50	❌ Blocked
+
+👉 Because we always check:
+
+“How many requests happened in the last 60 seconds from NOW”
+
+🎯 Key Concept
+
+Instead of:
+
+fixed window → [10:00 - 10:01]
+
+We use:
+
+sliding window → [current_time - 60 sec → current_time]
+⚙️ Internal Architecture (Important)
+1. Store timestamps
+
+Every request is stored like:
+
+[10:00:10, 10:00:20, 10:00:30]
+2. On new request:
+Remove old timestamps (older than 60 sec)
+Count remaining requests
+Decide allow/block
+3. Example logic
+const now = Date.now()
+
+// keep only last 60 sec requests
+requests = requests.filter(t => now - t < 60000)
+
+if (requests.length >= LIMIT) {
+  block()
+} else {
+  requests.push(now)
+  allow()
+}
+🚀 Why it’s better
+✅ No sudden reset abuse
+✅ Smooth traffic control
+✅ More accurate
+✅ Fair usage
+⚠️ Real-world optimization
+
+Instead of arrays → use:
+
+Redis sorted sets
+timestamps as scores
+
+👉 Because:
+
+fast filtering
+scalable
+💣 2) Brute Force Attack (Deep Understanding)
+🔓 What it means
+
+A brute force attack =
+trying many password combinations rapidly to guess the correct one
+
+📌 Example (login attack)
+
+Attacker tries:
+
+admin123
+password123
+qwerty
+123456
+...
+1000 attempts in seconds
+⚡ Why it’s dangerous
+1. Account takeover
+
+If password is weak → attacker gets access
+
+2. Server overload
+
+1000 requests/sec → your backend:
+
+CPU spike 🔥
+DB overload 💥
+API crashes 😵
+3. Data breach
+
+Once inside:
+
+steal user data
+change passwords
+perform fraud
+🔥 What actually happens technically
+Without protection:
+Attacker script → sends 1000 req/sec
+↓
+Your login API runs DB query each time
+↓
+Database overloaded
+↓
+App becomes slow or crashes
+🧠 Real-world analogy
+
+Think like:
+
+Login = door 🔑
+Brute force = trying 1000 keys per second
+
+👉 Eventually one might open the lock
+
+🛡️ How Rate Limiting Stops This
+
+With rate limit:
+
+Limit: 5 requests/minute
+
+Now:
+
+After 5 attempts → 🚫 blocked
+Remaining 995 attempts → never reach server
+🔐 Extra protections (used with Arcjet)
+rate limiting ✅
+bot detection 🤖
+CAPTCHA 🧩
+account lockout 🔒
+⚡ Final Takeaway
+Sliding Window
+Tracks requests in last X seconds continuously
+Prevents burst abuse
+More accurate than fixed window
+Brute Force Attack
+Rapid password guessing attack
+Can:
+hack accounts
+crash servers
+Stopped by:
+rate limiting
+auth protections
+🔥 Simple Summary
+Sliding window = moving time window check
+Brute force = mass login attempts
+Rate limiting = your first line of defense
+```
+
+```
+19.
+Q. so you mean in sliding window approach we can only make 5 request say if defined within the 60 sec sliding window, then how will the next requests will be made on the same api if needed if it is blocked
+
+Ans>> 👉 Rate limiting doesn’t permanently block you.
+It only says: “You’ve used your quota for now — wait a bit.”
+
+🧠 How requests continue after being blocked
+
+Let’s take your example:
+
+Limit = 5 requests per 60 seconds (sliding window)
+📊 Timeline explanation (this is the key)
+Time	Action	Status
+00s	Request 1	✅ Allowed
+10s	Request 2	✅
+20s	Request 3	✅
+30s	Request 4	✅
+40s	Request 5	✅
+50s	Request 6	❌ Blocked
+
+👉 At 50s, you already used 5 requests in the last 60 seconds → blocked
+
+🔁 Now what happens next?
+
+At 61 seconds, something important happens:
+
+The request at 00s is now older than 60 seconds
+It gets removed from the window
+
+Now your active window is:
+
+[10s, 20s, 30s, 40s] → 4 requests
+
+👉 So now:
+
+You can make 1 new request again ✅
+🎯 Core idea (THIS is sliding window magic)
+
+The limit is not “5 forever”
+It is “5 in the last 60 seconds from now”
+
+🔄 Continuous flow visualization
+
+Think of it like a moving box:
+
+<---- 60 sec window ---->
+        [your requests]
+
+As time moves:
+
+Old requests fall out ❌
+New slots open up ✅
+🚦 What client should do when blocked
+
+When you hit limit → server returns:
+
+429 Too Many Requests
+Good practice:
+
+Wait for retry time
+
+Often server sends:
+Retry-After: 10
+Retry later (not immediately spam again)
+💡 Real-world behavior (important)
+Scenario 1: Normal user
+Makes 1–2 requests/sec → fine ✅
+Scenario 2: Burst user
+Sends 10 requests instantly → blocked 🚫
+Waits a few seconds → resumes ✅
+Scenario 3: Attacker
+Keeps spamming → continuously blocked ❌
+⚙️ Developer-side control (you control behavior)
+
+You can design limits like:
+
+Option A (strict)
+5 requests / 60 sec
+Option B (user-friendly)
+10 requests / 60 sec
++ burst allowance
+🔥 Important insight
+
+👉 Sliding window does NOT freeze access
+
+It creates:
+
+temporary backpressure
+not permanent blocking
+⚡ Final Takeaway
+Limit = max requests in last X seconds
+When limit hit → temporarily blocked
+As time passes → old requests expire
+New requests become allowed again
+🔥 Simple Summary
+You’re blocked only until some old requests expire
+Sliding window = dynamic recovery system
+System automatically “unblocks” you over time
+```
+
+```
+20.
+Q. then spammer can try spamming after ever few seconds f wait?
+
+Ans>> Yes — a spammer can try again after waiting, but the key point is:
+👉 rate limiting makes spamming ineffective, slow, and expensive, not impossible.
+
+Let’s break this properly.
+
+🧠 1) What happens if attacker waits?
+
+Using your example:
+
+5 requests / 60 sec (sliding window)
+Attacker strategy:
+Send 5 requests → allowed
+Wait a few seconds
+Send again → partially allowed
+
+👉 So yes, they can keep trying slowly
+
+🚫 But here’s the important part
+❌ Without rate limiting
+1000 requests/sec
+Password cracked in seconds
+✅ With rate limiting
+5 requests/minute
+300 requests/hour
+
+👉 That’s EXTREMELY slow
+
+💣 Real impact on attacker
+Example: Password guessing
+
+Let’s say:
+
+Password space = 1 million possibilities
+Without rate limit:
+1000 attempts/sec → cracked in ~1000 sec (~16 min)
+With rate limit:
+5 attempts/min → 300/hour
+→ 1,000,000 / 300 ≈ 3333 hours (~139 days 😅)
+
+👉 Attack becomes impractical
+
+🔐 2) Why rate limiting alone is NOT enough
+
+You’re thinking like a security engineer now 👏
+And you’re right — we don’t rely only on rate limiting
+
+🛡️ 3) Real-world layered protection (used with Arcjet)
+1. Rate limiting
+Slows attacker down
+2. Account lockout 🔒
+
+After 5–10 failed logins:
+
+Account locked for 15 min
+
+👉 Now attacker must wait even longer
+
+3. CAPTCHA / Bot detection 🤖
+Detect automated scripts
+Block non-human behavior
+4. IP blocking 🚫
+If suspicious activity → block IP
+5. Exponential backoff ⏳ (VERY important)
+
+Instead of fixed wait:
+
+1st fail → wait 5 sec  
+2nd fail → wait 10 sec  
+3rd fail → wait 30 sec  
+
+👉 Makes repeated attempts painful
+
+6. Strong passwords / hashing
+
+Even if attacker tries:
+
+bcrypt / argon2 makes guessing harder
+⚙️ 4) What YOU should implement (practical stack)
+
+For your full-stack projects:
+
+🔐 Login route protection:
+Rate limit (5–10/min)
+Account lock after 5 fails
+CAPTCHA after suspicious behavior
+Use sessions (not raw JWT)
+💸 API routes (AI, etc.)
+Rate limit per user
+Token quotas
+🔥 Final Reality Check
+
+👉 Security is not about “completely stopping” attacks
+👉 It’s about making them:
+
+slow 🐢
+expensive 💰
+detectable 👀
+
+So attackers give up.
+
+⚡ Final Takeaway
+Yes, attacker can retry after waiting
+But rate limiting makes attack impractical
+Combine with:
+lockouts
+CAPTCHA
+bot detection
+This creates real security
+🔥 Simple Summary
+Rate limiting = slows attacker
+Not enough alone → use layers
+Goal = make attack not worth it
+```
+
+```
+21.
+Q.
+```
