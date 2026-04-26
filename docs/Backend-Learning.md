@@ -2789,5 +2789,634 @@ Goal = make attack not worth it
 
 ```
 21.
-Q.
+Q.  const client = aj.withRule(
+            slidingWindow({
+                mode: "LIVE",
+                interval: '1m',
+                max: limit,
+            })
+        );
+
+        const arcjetRequest: ArcjetNodeRequest = {
+            headers: req.headers,
+            method: req.method,
+            url: req.originalUrl ?? req.url,
+            socket: {remoteAddress: req.ip ?? req.socket.remoteAddress ?? '0.0.0.0'},
+        }
+
+        const decision = await client.protect(arcjetRequest);
+
+        if (decision.isDenied()) {
+            if (decision.reason.isBot()) {
+                return res.status(403).json({error: "Forbidden", message: "Automated requests are not allowed."});
+            }
+            if (decision.reason.isShield()) {
+                return res.status(403).json({error: "Forbidden", message: "Request blocked by security policy."});
+            }
+            if (decision.reason.isRateLimit()) {
+                return res.status(429).json({error: "Too many requests", message});
+            }
+            // Default deny for any other reason
+            return res.status(403).json({error: "Forbidden", message: "Request blocked by security policy."});
+        } ----> explain this code with respect to  this following code ---> import arcjet, { shield, detectBot, slidingWindow } from "@arcjet/node";
+
+if (!process.env.ARCJET_KEY && process.env.NODE_ENV !== "test") {
+    throw new Error("ARCJET_KEY environment variable is required");
+}
+
+const aj = arcjet({
+    key: process.env.ARCJET_KEY!,
+    rules: [
+        // Shield protects your app from common attacks e.g. SQL injection
+        shield({ mode: "LIVE" }),
+        // Create a bot detection rule
+        detectBot({
+            mode: "LIVE", // Blocks requests.
+            // Block all bots except the following
+            allow: [
+                "CATEGORY:SEARCH_ENGINE",
+                "CATEGORY:PREVIEW",
+            ],
+        }),
+        slidingWindow({
+            mode: "LIVE",
+            interval: 2, // Refill every 2 seconds
+            max: 5,
+        }),
+    ],
+});
+
+export default aj;
+
+Ans>> You’ve basically shown two ways of using Arcjet:
+
+Global rules (configured once)
+Dynamic / per-route rules (configured inside handler)
+
+Let’s connect both clearly 👇
+
+🧠 1) First code (Global Arcjet setup)
+const aj = arcjet({
+    key: process.env.ARCJET_KEY!,
+    rules: [
+        shield({ mode: "LIVE" }),
+        detectBot({
+            mode: "LIVE",
+            allow: ["CATEGORY:SEARCH_ENGINE", "CATEGORY:PREVIEW"],
+        }),
+        slidingWindow({
+            mode: "LIVE",
+            interval: 2,
+            max: 5,
+        }),
+    ],
+});
+🔍 What this does
+
+You are creating a global Arcjet client (aj) with 3 protections:
+
+🛡️ 1. shield()
+Protects from:
+SQL injection
+common attacks
+Works automatically on every request
+🤖 2. detectBot()
+Blocks bots except:
+search engines
+link previews
+🚦 3. slidingWindow()
+interval: 2,
+max: 5
+
+👉 Means:
+
+Max 5 requests every 2 seconds per IP
+
+💡 Important
+
+This setup applies to:
+
+ALL routes using aj
+
+⚙️ 2) Second code (Dynamic / per-route control)
+const client = aj.withRule(
+    slidingWindow({
+        mode: "LIVE",
+        interval: '1m',
+        max: limit,
+    })
+);
+🔥 What’s happening here?
+
+👉 You are extending the base Arcjet instance
+
+aj = base rules (shield + bot detection + default rate limit)
+withRule() = adds extra rule for THIS request
+📌 So now this route has:
+shield ✅
+bot detection ✅
+global rate limit (2 sec one) ✅
++ custom rate limit (1 min one) ✅
+🧩 3) Request transformation (VERY important)
+const arcjetRequest: ArcjetNodeRequest = {
+    headers: req.headers,
+    method: req.method,
+    url: req.originalUrl ?? req.url,
+    socket: {remoteAddress: req.ip ?? req.socket.remoteAddress ?? '0.0.0.0'},
+}
+🔍 Why this is needed?
+
+Arcjet needs a standardized request format
+
+So you convert Express request → Arcjet format
+
+Key part:
+remoteAddress: req.ip
+
+👉 This is how Arcjet:
+
+identifies user
+applies rate limiting per IP
+🚀 4) Core execution
+const decision = await client.protect(arcjetRequest);
+🧠 What happens internally
+
+Arcjet runs:
+
+shield → check attack
+detectBot → check bot
+slidingWindow → check rate
+
+👉 Then returns:
+
+decision = {
+  allowed OR denied,
+  reason
+}
+🚫 5) Handling blocked requests
+if (decision.isDenied()) {
+
+Now you check WHY it was blocked
+
+🧠 Case 1: Bot detected
+if (decision.reason.isBot())
+
+👉 Response:
+
+403 Forbidden
+🧠 Case 2: Shield triggered
+if (decision.reason.isShield())
+
+👉 Example:
+
+SQL injection attempt
+malicious payload
+🧠 Case 3: Rate limit exceeded
+if (decision.reason.isRateLimit())
+
+👉 Response:
+
+429 Too Many Requests
+⚠️ Default fallback
+return res.status(403)
+
+👉 Safety net for unknown cases
+
+🔁 6) Big Picture Flow
+Incoming Request
+      ↓
+Convert to ArcjetRequest
+      ↓
+client.protect()
+      ↓
+Arcjet checks:
+   - Shield
+   - Bot detection
+   - Rate limit
+      ↓
+Decision returned
+      ↓
+Allowed → continue
+Denied → return error
+⚡ 7) Key Difference (IMPORTANT)
+Concept	First Code	Second Code
+Scope	Global	Per route
+Rules	Fixed	Dynamic
+Use case	App-wide security	Sensitive routes (login, payments)
+💡 Real-world usage (for YOU)
+🔐 Login route
+max: 5 / minute
+📡 Normal API
+max: 100 / minute
+
+👉 That’s why withRule() is powerful
+
+🔥 Final Takeaway
+arcjet() → base security layer
+withRule() → customize per route
+protect() → runs all checks
+decision → tells allow/block
+🔥 Simple Summary
+Global rules = default protection
+withRule = extra per-route security
+slidingWindow = rate limiting logic
+decision.isDenied() = block request
+```
+
+```
+22.
+Q. import type {Request, Response, NextFunction} from "express";
+import aj from "../config/arcjet";
+import {ArcjetNodeRequest, slidingWindow} from "@arcjet/node";
+
+const securityMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+    if (process.env.NODE_ENV === 'test') return next();
+
+    try {
+        // Setting rate limit role because every request will pass through this authentication middleware which will get user info and set user role and if no user it will set user to null.
+        const role: RateLimitRole = req.user?.role ?? 'guest';
+
+        let limit: number;
+        let message: string;
+
+        switch (role) {
+            case 'admin':
+                limit = 20;
+                message = 'Admin request limit exceeded (20 per minute). Slow down';
+                break;
+            case 'teacher':
+            case 'student':
+                limit = 10;
+                message = 'User request limit exceeded (10 per minute). Please wait';
+                break;
+            default:
+                limit = 5;
+                message = 'Guest request limit exceeded (5 per minute). Please sign up for higher limits';
+                break;
+        }
+
+        const client = aj.withRule(
+            slidingWindow({
+                mode: "LIVE",
+                interval: '1m',
+                max: limit,
+            })
+        );
+
+        const arcjetRequest: ArcjetNodeRequest = {
+            headers: req.headers,
+            method: req.method,
+            url: req.originalUrl ?? req.url,
+            socket: {remoteAddress: req.ip ?? req.socket.remoteAddress ?? '0.0.0.0'},
+        }
+
+        const decision = await client.protect(arcjetRequest);
+
+        if (decision.isDenied()) {
+            if (decision.reason.isBot()) {
+                return res.status(403).json({error: "Forbidden", message: "Automated requests are not allowed."});
+            }
+            if (decision.reason.isShield()) {
+                return res.status(403).json({error: "Forbidden", message: "Request blocked by security policy."});
+            }
+            if (decision.reason.isRateLimit()) {
+                return res.status(429).json({error: "Too many requests", message});
+            }
+            // Default deny for any other reason
+            return res.status(403).json({error: "Forbidden", message: "Request blocked by security policy."});
+        }
+
+        next();
+    } catch (e) {
+        console.error('Arcjet middleware error', e);
+        res.status(500).json({
+            error: 'Internal Server Error',
+            message: 'Something went wrong with security middleware'
+        });
+    }
+}
+
+export default securityMiddleware; ----> how switch case code is being used here with respect to arcjet security
+
+Ans>> 🧠 Big Idea First
+
+👉 Arcjet doesn’t know your users (admin, student, etc.)
+👉 YOU decide limits → Arcjet enforces them
+
+So:
+
+switch(role) → decides LIMIT
+Arcjet → applies that LIMIT
+⚙️ Step-by-step flow of your middleware
+1️⃣ Role extraction
+const role: RateLimitRole = req.user?.role ?? 'guest';
+
+👉 From your auth middleware:
+
+If logged in → role = admin / teacher / student
+If not → role = guest
+2️⃣ 🔀 Switch case (THIS is your customization layer)
+switch (role) {
+    case 'admin':
+        limit = 20;
+        message = 'Admin request limit exceeded';
+        break;
+
+    case 'teacher':
+    case 'student':
+        limit = 10;
+        message = 'User request limit exceeded';
+        break;
+
+    default:
+        limit = 5;
+        message = 'Guest request limit exceeded';
+}
+🎯 What this does
+
+You are defining different rate limits per role
+
+Role	Limit
+admin	20 req/min
+teacher/student	10 req/min
+guest	5 req/min
+
+👉 This is called:
+
+role-based rate limiting
+
+🔗 3️⃣ Connecting switch → Arcjet
+const client = aj.withRule(
+    slidingWindow({
+        mode: "LIVE",
+        interval: '1m',
+        max: limit,
+    })
+);
+🔥 THIS is the connection point
+limit comes from your switch case
+That value is injected into Arcjet rule
+
+👉 So effectively:
+
+switch decides → Arcjet enforces
+💡 Example scenarios
+👑 Admin request
+role = admin
+→ limit = 20
+→ Arcjet allows 20 req/min
+👨‍🎓 Student request
+role = student
+→ limit = 10
+→ Arcjet allows 10 req/min
+👻 Guest request
+role = guest
+→ limit = 5
+→ Arcjet allows 5 req/min
+🚀 4️⃣ What happens during request
+const decision = await client.protect(arcjetRequest);
+
+Arcjet now:
+
+tracks requests per IP
+applies your role-based limit
+🚫 5️⃣ If limit exceeded
+if (decision.reason.isRateLimit()) {
+    return res.status(429).json({ message });
+}
+
+👉 Notice:
+
+message also comes from switch
+So response is role-aware
+🧠 Why this design is powerful
+✅ 1. Fine-grained control
+
+Different users → different limits
+
+✅ 2. Better UX
+Admins → less restriction
+Guests → more restriction
+✅ 3. Scalable
+
+You can easily add:
+
+case 'premium':
+    limit = 50;
+⚠️ Important insight (very important)
+
+👉 Arcjet itself does NOT know:
+
+roles
+users
+business logic
+
+👉 It only knows:
+
+request
+IP
+rules
+💡 So your architecture is:
+Auth Middleware → adds req.user
+        ↓
+Security Middleware (your code)
+        ↓
+switch(role) → decide limit
+        ↓
+Arcjet slidingWindow(limit)
+        ↓
+Arcjet enforces rate limit
+🔥 Real-world analogy
+
+Think:
+
+You = traffic controller deciding rules
+Arcjet = police enforcing rules
+Admin → highway (fast lane 🚀)
+User → normal road 🛣️
+Guest → narrow lane 🚶
+⚡ Final Takeaway
+switch = business logic layer
+slidingWindow(max: limit) = security enforcement
+Together = role-based rate limiting system
+🔥 Simple Summary
+Switch sets limit based on role
+Arcjet uses that limit to control requests
+This creates dynamic, per-user security
+```
+
+```
+23.
+Q. in reference with the above explanation, explain how global arcjet rules and withrule works
+
+Ans>> 🧠 Core Idea
+
+You have two layers of rules in Arcjet:
+
+1. Global rules → defined once in arcjet config
+2. withRule() → added dynamically per request
+
+👉 Both are combined together, not replaced.
+
+⚙️ 1) Global Rules (Base Security Layer)
+
+From your config:
+
+const aj = arcjet({
+    rules: [
+        shield({ mode: "LIVE" }),
+        detectBot({ mode: "LIVE" }),
+        slidingWindow({ interval: 2, max: 5 }),
+    ],
+});
+🔍 What this means
+
+Every request using aj automatically goes through:
+
+✅ Shield
+blocks SQL injection, attacks
+✅ Bot detection
+blocks unwanted bots
+✅ Default rate limit
+5 requests / 2 seconds
+
+👉 Think of this as:
+
+"Default protection for your entire app"
+🔀 2) withRule() (Dynamic Layer)
+
+From your middleware:
+
+const client = aj.withRule(
+    slidingWindow({
+        interval: '1m',
+        max: limit,
+    })
+);
+🔍 What this does
+
+👉 It adds a new rule on top of global rules
+
+NOT replace ❌
+BUT extend ✅
+
+🧩 3) How both work together
+
+When this runs:
+
+await client.protect(request)
+
+Arcjet executes:
+
+1. Global rules
+   - shield
+   - detectBot
+   - slidingWindow (2 sec)
+
+2. Additional rule (from withRule)
+   - slidingWindow (1 min, role-based)
+🎯 Execution Flow (VERY IMPORTANT)
+Incoming Request
+      ↓
+Global Rules (always run)
+   ↓ shield
+   ↓ bot detection
+   ↓ global rate limit
+      ↓
+withRule (extra rule)
+   ↓ role-based rate limit
+      ↓
+Final Decision (allow / deny)
+⚡ 4) Key Behavior
+
+👉 If ANY rule fails → request is blocked
+
+Example:
+
+Case 1: Bot detected
+Blocked immediately ❌
+Rate limit not even important
+Case 2: Rate limit exceeded (global)
+Blocked ❌
+Case 3: Role-based limit exceeded
+Blocked ❌
+🔥 5) Why both layers are used
+🛡️ Global rules → baseline protection
+applies everywhere
+protects from common threats
+🎯 withRule → fine-grained control
+per route
+per user role
+per feature
+💡 Example from your code
+👻 Guest user hitting login API
+
+Global:
+
+5 req / 2 sec
+
+Dynamic:
+
+5 req / 1 min
+
+👉 Effective protection = BOTH applied
+
+👑 Admin user
+
+Global:
+
+5 req / 2 sec
+
+Dynamic:
+
+20 req / 1 min
+
+👉 Admin still limited by:
+
+short burst (2 sec rule)
+long-term usage (1 min rule)
+🚀 6) Why this design is powerful
+✅ Prevents burst attacks
+
+(global rule → short interval)
+
+✅ Prevents long-term abuse
+
+(withRule → long interval)
+
+✅ Supports business logic
+
+(role-based limits)
+
+⚠️ Important Insight
+
+👉 withRule does NOT override global rules
+
+If you wanted override:
+
+You would need separate Arcjet instance
+🧠 Real-world analogy
+
+Think like airport security:
+
+Global rules = airport security check
+   - metal detector
+   - ID check
+
+withRule = special gate rules
+   - VIP lane
+   - stricter checks for some passengers
+
+👉 You MUST pass both
+
+⚡ Final Takeaway
+arcjet({ rules }) → global security layer
+withRule() → adds extra rules dynamically
+Both run together
+Any failure → request blocked
+🔥 Simple Summary
+Global rules = default protection
+withRule = per-request customization
+Combined = layered security
+Not override → extend
 ```

@@ -2,28 +2,28 @@ import type {Request, Response, NextFunction} from "express";
 import aj from "../config/arcjet";
 import {ArcjetNodeRequest, slidingWindow} from "@arcjet/node";
 
-const securityMiddleware = async (req: Request, res:Response, next:NextFunction) => {
+const securityMiddleware = async (req: Request, res: Response, next: NextFunction) => {
     if (process.env.NODE_ENV === 'test') return next();
 
     try {
         // Setting rate limit role because every request will pass through this authentication middleware which will get user info and set user role and if no user it will set user to null.
         const role: RateLimitRole = req.user?.role ?? 'guest';
 
-        let limit : number;
+        let limit: number;
         let message: string;
 
         switch (role) {
             case 'admin':
-                limit=20;
+                limit = 20;
                 message = 'Admin request limit exceeded (20 per minute). Slow down';
                 break;
             case 'teacher':
             case 'student':
-                limit=10;
+                limit = 10;
                 message = 'User request limit exceeded (10 per minute). Please wait';
                 break;
             default:
-                limit=5;
+                limit = 5;
                 message = 'Guest request limit exceeded (5 per minute). Please sign up for higher limits';
                 break;
         }
@@ -40,25 +40,32 @@ const securityMiddleware = async (req: Request, res:Response, next:NextFunction)
             headers: req.headers,
             method: req.method,
             url: req.originalUrl ?? req.url,
-            socket: { remoteAddress: req.socket.remoteAddress ?? req.ip ?? '0.0.0.0' },
+            socket: {remoteAddress: req.ip ?? req.socket.remoteAddress ?? '0.0.0.0'},
         }
 
         const decision = await client.protect(arcjetRequest);
 
-        if (decision.isDenied() && decision.reason.isBot()) {
-            return res.status(403).json({ error: "Forbidden", message: "Automated requests are not allowed." });
-        }
-        if (decision.isDenied() && decision.reason.isShield()) {
-            return res.status(403).json({ error: "Forbidden", message: "Request blocked by security policy." });
-        }
-        if (decision.isDenied() && decision.reason.isRateLimit()) {
-            return res.status(403).json({ error: "Too many requests", message });
+        if (decision.isDenied()) {
+            if (decision.reason.isBot()) {
+                return res.status(403).json({error: "Forbidden", message: "Automated requests are not allowed."});
+            }
+            if (decision.reason.isShield()) {
+                return res.status(403).json({error: "Forbidden", message: "Request blocked by security policy."});
+            }
+            if (decision.reason.isRateLimit()) {
+                return res.status(429).json({error: "Too many requests", message});
+            }
+            // Default deny for any other reason
+            return res.status(403).json({error: "Forbidden", message: "Request blocked by security policy."});
         }
 
         next();
     } catch (e) {
         console.error('Arcjet middleware error', e);
-        res.status(500).json({ error: 'Internal Server Error', message: 'Something went wrong with security middleware' });
+        res.status(500).json({
+            error: 'Internal Server Error',
+            message: 'Something went wrong with security middleware'
+        });
     }
 }
 
