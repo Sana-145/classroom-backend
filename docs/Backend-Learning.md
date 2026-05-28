@@ -4836,5 +4836,10 @@ Explicit declaration prevents unsafe exposure of fields
 ```
 
 ```
-30.
+30. To Revert the Remote main Branch
+Ans>> We will force the remote main branch back to the commit before you implemented better-auth:
+bash
+git push origin +HEAD~1:main
+
+What this does: The + symbol forces GitHub to roll back the main branch by exactly one commit (HEAD~1), removing the direct push you made earlier.
 ```
