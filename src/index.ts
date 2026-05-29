@@ -6,7 +6,7 @@ import {auth} from "./lib/auth.js";
 import {toNodeHandler} from "better-auth/node";
 
 const app = express();
-const PORT = 8000;
+const PORT = Number(process.env.PORT) || 8000;
 
 const frontendUrl = process.env.FRONTEND_URL;
 if (!frontendUrl) throw new Error("FRONTEND_URL environment variable is required");
@@ -29,6 +29,6 @@ app.get("/", (req, res) => {
     res.send("Hello, welcome to the classroom API");
 });
 
-app.listen(PORT, () => {
-    console.log(`Server is running on port http://localhost:${PORT}`);
-})
+app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server is running on port ${PORT}`);
+});
