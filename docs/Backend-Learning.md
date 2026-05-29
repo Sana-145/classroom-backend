@@ -4843,3 +4843,259 @@ git push origin +HEAD~1:main
 
 What this does: The + symbol forces GitHub to roll back the main branch by exactly one commit (HEAD~1), removing the direct push you made earlier.
 ```
+
+```
+31. Site24*7 :
+
+- It is used for monitoring your application's performance.
+- Your backend application is running fine. Users are signing up, APIs are responding, and everything seems okay. 
+But as soon as you've got some traffic, you get more users, and they do things in a way you don't initially imagine, and your application is crashed. 
+Plus, you've got a little to none information as you don't know what the heck the user just did. This is where you realize that building an application is only half the job.
+Monitoring it in production is the other half. 
+Check any industry projects and you'll never see it without monitoring.
+Except for the vibecoded SAS apps, but they are not really industry projects anyway.
+As much as building a proper backend is essential, so is the ability to monitor it. 
+- But many devs think that monitoring simply means checking the uptime status. Is the app up or down?
+- But modern backend systems need much more like performance visibility, error tracking, dependency monitoring, resource usage, code level insights, and more, which is where application monitoring platforms come in. 
+- And one such platform is site 247. 
+It's a full stack monitoring platform that helps you monitor websites, servers, cloud infrastructure, APIs, and most importantly for us, applications. Instead of using multiple tools for logs, performance, errors, infrastructure, site 24/7 brings everything together in one place. 
+- The APM feature:  APM stands for application performance monitoring and it helps you understand how your application behaves in real time. 
+How requests flow through your backend, where time is spent inside your code, why errors happen, and why your dependencies are slow. 
+Basically, APM tells you what's happening inside your backend while it's running. 
+With APM integrated, you can track every API request, check response times of each route, see slow database queries, examine external API delays, find errors and exceptions, get info on CPU and memory usage, and understand event loop delays happening due to your code. 
+It's a pretty useful tool to track your backend inside out. 
+```
+
+```
+32. what do you mean by local imports of files in a respective folder structure and why we are changing the the extension to .js of local imports only
+
+Ans>> This is a very important concept in Node.js ESM + TypeScript, so let's understand it properly instead of just memorizing the fix.
+
+1. What are "local imports"?
+
+A local import is when you're importing a file from your own project using a relative path.
+
+Example:
+
+import { auth } from "./lib/auth";
+import { db } from "../db";
+import { user } from "../db/schema";
+
+These point to files inside your project.
+
+NOT local imports
+
+These import packages from node_modules:
+
+import express from "express";
+import { drizzle } from "drizzle-orm";
+import { betterAuth } from "better-auth";
+
+These are package imports, not file imports.
+
+Example folder structure
+
+Suppose you have:
+
+src/
+│
+├── index.ts
+│
+├── db/
+│   ├── index.ts
+│   └── schema.ts
+│
+└── lib/
+    └── auth.ts
+
+Inside index.ts:
+
+import { auth } from "./lib/auth";
+import { db } from "./db";
+
+These are local imports because you're importing your own files.
+
+2. Why did this work before?
+
+Before, you had:
+
+"moduleResolution": "node"
+
+TypeScript was being helpful.
+
+When it saw:
+
+import { auth } from "./lib/auth";
+
+it automatically guessed:
+
+./lib/auth.ts
+
+during development.
+
+3. What changed with NodeNext?
+
+Now you have:
+
+"module": "NodeNext",
+"moduleResolution": "NodeNext"
+
+NodeNext follows actual Node.js ESM rules.
+
+Node.js does NOT guess extensions.
+
+When Node sees:
+
+import { auth } from "./lib/auth";
+
+it asks:
+
+"Which file exactly?"
+
+auth.js?
+
+auth.mjs?
+
+auth.cjs?
+
+Node refuses to guess.
+
+So TypeScript throws:
+
+Relative import paths need explicit file extensions
+4. Why .js and not .ts?
+
+This is the part that confuses almost everyone.
+
+You are writing:
+
+import { auth } from "./lib/auth.js";
+
+even though the file is:
+
+src/lib/auth.ts
+
+Why?
+
+Because TypeScript does NOT run in production.
+
+Development
+
+Source files:
+
+src/
+ ├── index.ts
+ └── lib/auth.ts
+After build
+
+When you run:
+
+npm run build
+
+TypeScript generates:
+
+dist/
+ ├── index.js
+ └── lib/auth.js
+
+When Node executes:
+
+node dist/index.js
+
+the actual file that exists is:
+
+dist/lib/auth.js
+
+NOT:
+
+dist/lib/auth.ts
+
+So the import must point to:
+
+"./lib/auth.js"
+Visual Flow
+Source
+import { auth } from "./lib/auth.js";
+
+↓
+
+TypeScript compiles
+
+↓
+
+Output
+import { auth } from "./lib/auth.js";
+
+↓
+
+Node finds:
+
+dist/lib/auth.js
+
+✅ Works
+
+What happens if you write .ts?
+import { auth } from "./lib/auth.ts";
+
+Then after build:
+
+import { auth } from "./lib/auth.ts";
+
+Node looks for:
+
+dist/lib/auth.ts
+
+which does NOT exist.
+
+❌ Crash
+
+Rule to remember
+
+When using:
+
+"type": "module"
+
+and
+
+"module": "NodeNext"
+Local imports
+import { auth } from "./lib/auth.js";
+import { db } from "../db/index.js";
+
+Use .js
+
+Package imports
+import express from "express";
+import { drizzle } from "drizzle-orm";
+
+No extension
+
+Why Railway exposed this problem
+
+During development:
+
+tsx watch src/index.ts
+
+tsx is smart and automatically resolves .ts files.
+
+So everything works locally.
+
+But Railway runs:
+
+npm run build
+
+which uses:
+
+tsc
+
+and NodeNext follows strict ESM rules.
+
+That's why Railway found the issue.
+
+Quick Summary
+Local imports = files inside your project (./, ../)
+Package imports = npm packages (express, drizzle-orm, etc.)
+NodeNext requires explicit file extensions.
+Use .js in local imports because the compiled files are .js.
+Do not add .js to package imports.
+```
