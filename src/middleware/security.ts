@@ -4,6 +4,7 @@ import {ArcjetNodeRequest, slidingWindow} from "@arcjet/node";
 
 const securityMiddleware = async (req: Request, res: Response, next: NextFunction) => {
     if (process.env.NODE_ENV === 'test') return next();
+    if (process.env.NODE_ENV !== 'production') return next();
 
     try {
         // Setting rate limit role because every request will pass through this authentication middleware which will get user info and set user role and if no user it will set user to null.
